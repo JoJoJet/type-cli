@@ -91,6 +91,11 @@ mod tests {
     fn load_file_err2() {
         parse!(Command, "load-file" "foo" "--time-out").unwrap();
     }
+    #[test]
+    #[should_panic(expected = "Unknown flag `--lime-out`")]
+    fn load_file_err3() {
+        parse!(Command, "load-file" "foo" "--lime-out").unwrap();
+    }
 
     #[test]
     fn oof() {
