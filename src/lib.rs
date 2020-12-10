@@ -12,6 +12,8 @@ pub enum Error {
     ExpectedValue(&'static str),
     #[error("Unknown flag `{0}`")]
     UnknownFlag(String),
+    #[error("Unexpected positional argument `{0}`")]
+    ExtraArg(String),
     #[error("Error parsing string `{0}`")]
     Parse(String, Box<dyn StdError>)
 }

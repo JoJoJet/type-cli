@@ -65,6 +65,11 @@ mod tests {
     fn save_err() {
         parse!(Command, "save").unwrap();
     }
+    #[test]
+    #[should_panic(expected = "Unexpected positional argument `too-many`")]
+    fn save_err2() {
+        parse!(Command, "save" "foo" "too-many").unwrap();
+    }
 
     #[test]
     fn load_file() {
@@ -141,6 +146,11 @@ mod tests {
             parse!(Command, "print" "foo").unwrap(),
             Command::Print("foo".to_string(), None)
         );
+    }
+    #[test]
+    #[should_panic(expected = "Unexpected positional argument `extra-arg`")]
+    fn print_err() {
+        parse!(Command, "print" "foo" "bar" "extra-arg").unwrap();
     }
 
     #[test]

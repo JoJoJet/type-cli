@@ -264,6 +264,11 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                     #declarations
                     #consume_flags
                     #pos
+                    //
+                    // Return an error if there's an extra argument at the end.
+                    if let Some(a) = ARGS_ITER.next() {
+                        return Err(#err_ty::ExtraArg(a));
+                    }
                     #ctor
                 }
             }
@@ -299,9 +304,10 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             for (i, Arg { required, variadic }) in args.into_iter().enumerate() {
                 let i = i+1;
                 ctor = if variadic {
+                    // Run collect `by_ref` so it doesn't move the iterator.
                     quote! {
                         #ctor
-                        ARGS_ITER.map(#arg_ty::parse).collect::<Result<_, #err_ty>>()? ,
+                        ARGS_ITER.by_ref().map(#arg_ty::parse).collect::<Result<_, #err_ty>>()? ,
                     }
                 }
                 else if required {
@@ -318,9 +324,14 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 }
             }
             quote! {
-                #cmd_ident (
+                let val = #cmd_ident (
                     #ctor
-                )
+                );
+                // Return an error if there's an extra argument at the end.
+                if let Some(a) = ARGS_ITER.next() {
+                    return Err(#err_ty::ExtraArg(a));
+                }
+                val
             }
         },
         Fields::Unit => todo!()
