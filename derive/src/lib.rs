@@ -307,17 +307,15 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             
             
             quote! {
-                {
-                    #declarations
-                    #consume_flags
-                    #pos
-                    //
-                    // Return an error if there's an extra argument at the end.
-                    if let Some(a) = ARGS_ITER.next() {
-                        return Err(#err_ty::ExtraArg(a));
-                    }
-                    #ctor
+                #declarations
+                #consume_flags
+                #pos
+                //
+                // Return an error if there's an extra argument at the end.
+                if let Some(a) = ARGS_ITER.next() {
+                    return Err(#err_ty::ExtraArg(a));
                 }
+                #ctor
             }
         },
 
