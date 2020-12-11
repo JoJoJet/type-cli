@@ -8,6 +8,8 @@ pub enum Command {
     },
     LoadFile {
         file: String,
+        #[variadic]
+        bytes: Vec<u8>,
         #[named]
         time_out: u64,
     },
@@ -89,6 +91,29 @@ mod tests {
             parse!(Command, "load-file" "foo" "--time-out" "8").unwrap(),
             Command::LoadFile {
                 file: "foo".to_string(),
+                bytes: Vec::new(),
+                time_out: 8
+            }
+        );
+    }
+    #[test]
+    fn load_file_bytes() {
+        assert_eq!(
+            parse!(Command, "load-file" "foo" "7" "255" "--time-out" "8").unwrap(),
+            Command::LoadFile {
+                file: "foo".to_string(),
+                bytes: vec![7, 255],
+                time_out: 8
+            }
+        );
+    }
+    #[test]
+    fn load_file_bytes2() {
+        assert_eq!(
+            parse!(Command, "load-file" "foo" "15" "48" "--time-out" "8" "29").unwrap(),
+            Command::LoadFile {
+                file: "foo".to_string(),
+                bytes: vec![15, 48, 29],
                 time_out: 8
             }
         );

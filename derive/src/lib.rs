@@ -102,16 +102,19 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 short: Option<String>, // short name of the argument. `-a`
                 ty: Type,
                 required: bool,
+                variadic: bool,
             }
             impl Arg {
-                pub fn new(ident: Ident, short: Option<syn::LitStr>, ty: Type, required: bool) -> Self {
+                pub fn new(ident: Ident, short: Option<syn::LitStr>, ty: Type, required: bool, variadic: bool) -> Self {
                     let name = to_snake(&ident);
                     let l_ident = format_ident!("{}", name);
                     let arg_name = format!("--{}", name.replace("_", "-"));
                     let short = short.map(|s| format!("-{}", s.value()));
-                    Self { ident, l_ident, arg_name, short, ty, required }
+                    Self { ident, l_ident, arg_name, short, ty, required, variadic }
                 }
             }
+
+            let mut any_variadic = false;
 
             //
             // Process the arguments.
@@ -122,6 +125,7 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 let ident = ident.expect("field has an identifier");
 
                 let required = !attrs.iter().any(|a| a.path.is_ident("optional"));
+                let variadic = attrs.iter().any(|a| a.path.is_ident("variadic"));
                 let short = attrs.iter()
                     .find(|a| a.path.is_ident("short"))
                     .map(|a| a.parse_args::<syn::LitStr>())
@@ -129,18 +133,28 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 
                 // Named arguments.
                 if attrs.iter().any(|a| a.path.is_ident("named")) {
-                    named_args.push(Arg::new(ident, short, ty, required));
+                    if variadic {
+                        panic!("Named argument `{}` cannot be variadic.", ident.to_string());
+                    }
+                    named_args.push(Arg::new(ident, short, ty, required, false));
                 }
                 // Flags.
                 else if attrs.iter().any(|a| a.path.is_ident("flag")) {
-                    flags.push(Arg::new(ident, short, ty, required));
+                    if variadic {
+                        panic!("Flag `{}` cannot be variadic.", ident.to_string());
+                    }
+                    flags.push(Arg::new(ident, short, ty, required, false));
                 }
                 // Positional arguments.
                 else {
                     if required && pos_args.last().map_or(false, |a| !a.required) {
                         panic!("Required positional argument `{}` must come before any optional arguments.", ident.to_string());
                     }
-                    pos_args.push(Arg::new(ident, short, ty, required));
+                    if any_variadic {
+                        panic!("Positional argument `{}` must come before the variadic argument.", ident.to_string());
+                    }
+                    any_variadic = any_variadic || variadic;
+                    pos_args.push(Arg::new(ident, short, ty, required, variadic));
                 }
             }
 
@@ -200,9 +214,22 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             };
             // Code to consume positional arguments.
             let mut pos = quote!{};
-            for (i, Arg { l_ident, required, ..}) in pos_args.iter().enumerate() {
+            for (i, Arg { l_ident, required, variadic, ..}) in pos_args.iter().enumerate() {
                 let i = i+1;
-                if *required {
+                if *variadic {
+                    declarations = quote! {
+                        #declarations
+                        let mut #l_ident = Vec::<String>::new();
+                    };
+                    pos = quote! {
+                        #pos
+                        while let Some(arg) = ARGS_ITER.next() {
+                            #l_ident.push(arg);
+                            #consume_flags
+                        }
+                    };
+                }
+                else if *required {
                     declarations = quote! {
                         #declarations
                         let #l_ident : String;
@@ -230,8 +257,14 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             // Code to put the arguments in the constructor.
             let ctor =  {
                 let mut ctor = quote!{};
-                for Arg { ident, l_ident, required, .. } in pos_args {
-                    ctor = if required { 
+                for Arg { ident, l_ident, required, variadic, .. } in pos_args {
+                    ctor = if variadic {
+                        quote! {
+                            #ctor
+                            #ident : #l_ident.iter().map(#arg_ty::parse).collect::<Result<_, #err_ty>>()? ,
+                        }
+                    }
+                    else if required { 
                         quote! {
                             #ctor
                             #ident : #arg_ty::parse(#l_ident)? ,
