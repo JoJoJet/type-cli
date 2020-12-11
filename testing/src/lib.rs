@@ -38,7 +38,7 @@ mod tests {
 
     macro_rules! parse {
         ($ty: ty, $($st: literal)*) => {
-            <$ty>::parse_cli(args!("type-cli" $($st)*))
+            <$ty as type_cli::CLI>::parse(args!("type-cli" $($st)*))
         }
     }
 

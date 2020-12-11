@@ -1,9 +1,13 @@
-use std::{convert::AsRef, error::Error as StdError, str::FromStr};
+use std::error::Error as StdError;
 
 pub use type_cli_derive::CLI;
 
 mod args;
 pub use args::{Argument, OptionalArg, Flag};
+
+pub trait CLI : Sized {
+    fn parse(args: impl std::iter::Iterator<Item=String>) -> Result<Self, Error>;
+}
 
 #[derive(thiserror::Error)]
 pub enum Error {

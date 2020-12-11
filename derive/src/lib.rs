@@ -22,6 +22,7 @@ macro_rules! crate_path {
 pub fn cli(item: TokenStream) -> TokenStream {
     let cmd_ident;
     let err_ty = crate_path!(Error);
+    let cli_ty = crate_path!(CLI);
 
     let input: Item = syn::parse(item).expect("failed to parse");
 
@@ -66,8 +67,8 @@ pub fn cli(item: TokenStream) -> TokenStream {
     };
 
     let ret = quote! {
-        impl #cmd_ident {
-            pub fn parse_cli(mut ARGS_ITER : impl std::iter::Iterator<Item=String>) -> Result<#cmd_ident, #err_ty> {
+        impl #cli_ty for #cmd_ident {
+            fn parse(mut ARGS_ITER : impl std::iter::Iterator<Item=String>) -> Result<#cmd_ident, #err_ty> {
                 let _ = ARGS_ITER.next();
                 let ret = {
                     #body
