@@ -13,6 +13,7 @@ pub enum Command {
     Oof {
         ouch: String,
         #[named]
+        #[short("c")]
         #[optional]
         count: Option<u32>,
     },
@@ -111,6 +112,16 @@ mod tests {
             Command::Oof {
                 ouch: "foo".to_string(),
                 count: None
+            }
+        );
+    }
+    #[test]
+    fn oof_short() {
+        assert_eq!(
+            parse!(Command, "oof" "-c" "12" "foo").unwrap(),
+            Command::Oof {
+                ouch: "foo".to_string(),
+                count: Some(12)
             }
         );
     }

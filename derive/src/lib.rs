@@ -28,7 +28,7 @@ macro_rules! crate_path {
     }
 }
 
-#[proc_macro_derive(CLI, attributes(named, flag, optional, variadic))]
+#[proc_macro_derive(CLI, attributes(named, flag, optional, variadic, short))]
 pub fn cli(item: TokenStream) -> TokenStream {
     let cmd_ident;
     let err_ty = crate_path!(Error);
@@ -99,17 +99,17 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 ident: Ident,
                 l_ident: Ident,
                 name: String,
+                short: Option<String>,
                 ty: Type,
                 required: bool,
             }
             impl Arg {
-                pub fn new(ident: Ident, ty: Type, required: bool) -> Self {
+                pub fn new(ident: Ident, short: Option<String>, ty: Type, required: bool) -> Self {
                     let name = to_snake(&ident);
                     let l_ident = format_ident!("{}", name);
-                    Self { ident, l_ident, name: name.replace("_", "-"), ty, required }
+                    Self { ident, l_ident, name: name.replace("_", "-"), short, ty, required }
                 }
             }
-
 
             //
             // Process the arguments.
@@ -120,21 +120,26 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 let ident = ident.expect("field has an identifier");
 
                 let required = !attrs.iter().any(|a| a.path.is_ident("optional"));
+                let short = attrs.iter()
+                    .find(|a| a.path.is_ident("short"))
+                    .map(|a| a.parse_args::<syn::LitStr>())
+                    .transpose().expect("argument to `short` attribute must be a string");
+                let short = short.map(|s| s.value());
                 
                 // Named arguments.
                 if attrs.iter().any(|a| a.path.is_ident("named")) {
-                    named_args.push(Arg::new(ident, ty, required));
+                    named_args.push(Arg::new(ident, short, ty, required));
                 }
                 // Flags.
                 else if attrs.iter().any(|a| a.path.is_ident("flag")) {
-                    flags.push(Arg::new(ident, ty, required));
+                    flags.push(Arg::new(ident, short, ty, required));
                 }
                 // Positional arguments.
                 else {
                     if required && pos_args.last().map_or(false, |a| !a.required) {
                         panic!("Required positional argument `{}` must come before any optional arguments.", ident.to_string());
                     }
-                    pos_args.push(Arg::new(ident, ty, required));
+                    pos_args.push(Arg::new(ident, short, ty, required));
                 }
             }
 
@@ -147,15 +152,20 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             // Code snippet to consume named arguments and flags.
             let consume_flags = {
                 let mut match_args = quote! {};
-                for Arg { name, l_ident, .. } in &named_args {
+                for Arg { name, short, l_ident, .. } in &named_args {
                     declarations = quote! {
                         #declarations
                         let mut #l_ident: Option<String> = None;
                     };
                     let arg = format!("--{}", name);
+                    let mut pattern = quote! { Some(#arg) };
+                    if let Some(short) = short {
+                        let short = format!("-{}", short);
+                        pattern = quote! { #pattern | Some(#short) };
+                    }
                     match_args = quote! {
                         #match_args
-                        Some(#arg) => #l_ident = Some(ARGS_ITER.next().ok_or(#err_ty::ExpectedValue(#arg))?) ,
+                        #pattern => #l_ident = Some(ARGS_ITER.next().ok_or(#err_ty::ExpectedValue(#arg))?) ,
                     }
                 }
                 let mut match_flags = quote!{};
