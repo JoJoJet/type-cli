@@ -3,6 +3,7 @@ pub enum Command {
     Save {
         name: String,
         #[flag]
+        #[short("v")]
         verbose: bool,
     },
     LoadFile {
@@ -62,6 +63,16 @@ mod tests {
         );
     }
     #[test]
+    fn save_v() {
+        assert_eq!(
+            parse!(Command, "save" "foo" "-v").unwrap(),
+            Command::Save {
+                name: "foo".to_string(),
+                verbose: true
+            }
+        );
+    }
+    #[test]
     #[should_panic(expected = "Expected an argument at position `1`")]
     fn save_err() {
         parse!(Command, "save").unwrap();
@@ -83,7 +94,7 @@ mod tests {
         );
     }
     #[test]
-    #[should_panic(expected = "Expected an argument named `time-out`")]
+    #[should_panic(expected = "Expected an argument named `--time-out`")]
     fn load_file_err() {
         parse!(Command, "load-file" "foo").unwrap();
     }

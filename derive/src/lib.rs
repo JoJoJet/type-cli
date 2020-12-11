@@ -98,16 +98,18 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             struct Arg {
                 ident: Ident,
                 l_ident: Ident,
-                name: String,
-                short: Option<String>,
+                arg_name: String, // The cli-name of the argument. `--arg`
+                short: Option<String>, // short name of the argument. `-a`
                 ty: Type,
                 required: bool,
             }
             impl Arg {
-                pub fn new(ident: Ident, short: Option<String>, ty: Type, required: bool) -> Self {
+                pub fn new(ident: Ident, short: Option<syn::LitStr>, ty: Type, required: bool) -> Self {
                     let name = to_snake(&ident);
                     let l_ident = format_ident!("{}", name);
-                    Self { ident, l_ident, name: name.replace("_", "-"), short, ty, required }
+                    let arg_name = format!("--{}", name.replace("_", "-"));
+                    let short = short.map(|s| format!("-{}", s.value()));
+                    Self { ident, l_ident, arg_name, short, ty, required }
                 }
             }
 
@@ -124,7 +126,6 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                     .find(|a| a.path.is_ident("short"))
                     .map(|a| a.parse_args::<syn::LitStr>())
                     .transpose().expect("argument to `short` attribute must be a string");
-                let short = short.map(|s| s.value());
                 
                 // Named arguments.
                 if attrs.iter().any(|a| a.path.is_ident("named")) {
@@ -152,33 +153,34 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             // Code snippet to consume named arguments and flags.
             let consume_flags = {
                 let mut match_args = quote! {};
-                for Arg { name, short, l_ident, .. } in &named_args {
+                for Arg { arg_name, short, l_ident, .. } in &named_args {
                     declarations = quote! {
                         #declarations
                         let mut #l_ident: Option<String> = None;
                     };
-                    let arg = format!("--{}", name);
-                    let mut pattern = quote! { Some(#arg) };
+                    let mut pattern = quote! { Some(#arg_name) };
                     if let Some(short) = short {
-                        let short = format!("-{}", short);
                         pattern = quote! { #pattern | Some(#short) };
                     }
                     match_args = quote! {
                         #match_args
-                        #pattern => #l_ident = Some(ARGS_ITER.next().ok_or(#err_ty::ExpectedValue(#arg))?) ,
+                        #pattern => #l_ident = Some(ARGS_ITER.next().ok_or(#err_ty::ExpectedValue(#arg_name))?) ,
                     }
                 }
                 let mut match_flags = quote!{};
                 let flag_ty = crate_path!(Flag);
-                for Arg { name, l_ident, ty, .. } in flags.iter() {
+                for Arg { arg_name: flag, short, l_ident, ty, .. } in flags.iter() {
                     declarations = quote! {
                         #declarations
                         let mut #l_ident = <#ty>::default();
                     };
-                    let flag = format!("--{}", name);
+                    let mut pattern = quote! { Some(#flag) };
+                    if let Some(short) = short {
+                        pattern = quote! { #pattern | Some(#short) };
+                    }
                     match_flags = quote! {
                         #match_flags
-                        Some(#flag) => #flag_ty::increment(&mut #l_ident) ,
+                        #pattern => #flag_ty::increment(&mut #l_ident) ,
                     };
                 }
 
@@ -242,11 +244,11 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                         }
                     }
                 }
-                for Arg { name, ident, l_ident, required, .. } in named_args {
+                for Arg { arg_name, ident, l_ident, required, .. } in named_args {
                     ctor = if required {
                         quote! {
                             #ctor
-                            #ident: #arg_ty::parse(#l_ident.ok_or(#err_ty::ExpectedNamed(#name))?)? ,
+                            #ident: #arg_ty::parse(#l_ident.ok_or(#err_ty::ExpectedNamed(#arg_name))?)? ,
                         }
                     }
                     else {
