@@ -18,6 +18,21 @@ macro_rules! crate_path {
     }};
 }
 
+macro_rules! try_help {
+    ($iter: expr) => {{
+        let mut iter = $iter;
+        if let Some(help) = iter.find(|a| a.path.is_ident("help")) {
+            match parse_help(help) {
+                Ok(help) => Some(help),
+                Err(e) => return e.to_compile_error().into()
+            }
+        }
+        else {
+            None
+        }
+    }}
+}
+
 #[proc_macro_derive(CLI, attributes(help, named, flag, optional, variadic))]
 pub fn cli(item: TokenStream) -> TokenStream {
     let cmd_ident;
@@ -45,14 +60,9 @@ pub fn cli(item: TokenStream) -> TokenStream {
                 let name = to_snake(&ident);
 
                 let mut helpmsg = name.clone();
-                if let Some(help) = attrs.iter().find(|a| a.path.is_ident("help")) {
-                    match parse_help(help) {
-                        Ok(help) => {
-                            helpmsg.push('\t');
-                            helpmsg.push_str(&help);
-                        }
-                        Err(e) => return e.to_compile_error().into(),
-                    }
+                if let Some(help) = try_help!(attrs.iter()) {
+                    helpmsg.push('\t');
+                    helpmsg.push_str(&help);
                 }
                 subc.push(helpmsg);
 
@@ -119,10 +129,18 @@ pub fn cli(item: TokenStream) -> TokenStream {
     ret.into()
 }
 
-fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStream2 {
+fn command(cmd_ident: Ident, attr: Vec<Attribute>, fields: Fields) -> TokenStream2 {
+    let parse_ty = crate_path!(Parse);
+    let help_ty = crate_path!(HelpInfo);
     let err_ty = crate_path!(Error);
     let arg_ty = crate_path!(Argument);
     let opt_ty = crate_path!(OptionalArg);
+
+    let mut helpmsg = format!("Help - {}\n", to_snake(&cmd_ident));
+    if let Some(help) = try_help!(attr.iter()) {
+        helpmsg.push_str(&help);
+        helpmsg.push_str("\n\n");
+    }
 
     match fields {
         //
@@ -133,6 +151,8 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 l_ident: Ident,
                 arg_name: String,      // The cli-name of the argument. `--arg`
                 short: Option<String>, // short name of the argument. `-a`
+                name: String,          // The cli-name sans `--`
+                help: Option<String>,
                 ty: Type,
                 required: bool,
                 variadic: bool,
@@ -141,6 +161,7 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 pub fn new(
                     ident: Ident,
                     short: Option<String>,
+                    help: Option<String>,
                     ty: Type,
                     required: bool,
                     variadic: bool,
@@ -150,7 +171,9 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                         ident,
                         l_ident: format_ident!("{}", name),
                         arg_name: format!("--{}", name.replace("_", "-")),
+                        name,
                         short: short.map(|s| format!("-{}", s)),
+                        help,
                         ty,
                         required,
                         variadic,
@@ -176,6 +199,8 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 let required = !attrs.iter().any(|a| a.path.is_ident("optional"));
                 let variadic = attrs.iter().any(|a| a.path.is_ident("variadic"));
 
+                let help = try_help!(attrs.iter());
+
                 // Named arguments.
                 if let Some(named) = attrs.iter().find(|a| a.path.is_ident("named")) {
                     if variadic {
@@ -184,7 +209,7 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                     let short = short_reg
                         .captures(&named.tokens.to_string())
                         .map(|cap| cap[1].to_string());
-                    named_args.push(Arg::new(ident, short, ty, required, false));
+                    named_args.push(Arg::new(ident, short, help, ty, required, false));
                 }
                 // Flags.
                 else if let Some(flag) = attrs.iter().find(|a| a.path.is_ident("flag")) {
@@ -194,7 +219,7 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                     let short = short_reg
                         .captures(&flag.tokens.to_string())
                         .map(|cap| cap[1].to_string());
-                    flags.push(Arg::new(ident, short, ty, required, false));
+                    flags.push(Arg::new(ident, short, help, ty, required, false));
                 }
                 // Positional arguments.
                 else {
@@ -208,8 +233,68 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                         );
                     }
                     any_variadic = any_variadic || variadic;
-                    pos_args.push(Arg::new(ident, None, ty, required, variadic));
+                    pos_args.push(Arg::new(ident, None, help, ty, required, variadic));
                 }
+            }
+
+            //
+            // Generate help info for the arguments.
+            if pos_args.len() + named_args.len() > 0 {
+                helpmsg.push_str("ARGUMENTS:\n");
+            }
+            for arg in &pos_args {
+                helpmsg.push_str("    ");
+                helpmsg.push_str(&arg.name);
+                if let Some(help) = &arg.help {
+                    helpmsg.push('\t');
+                    helpmsg.push_str(help);
+                }
+                if arg.variadic {
+                    helpmsg.push('\t');
+                    helpmsg.push_str("[variadic]");
+                }
+                if !arg.required {
+                    helpmsg.push('\t');
+                    helpmsg.push_str("[optional]");
+                }
+                helpmsg.push('\n');
+            }
+            for arg in &named_args {
+                helpmsg.push_str("    ");
+                if let Some(short) = &arg.short {
+                    helpmsg.push_str(short);
+                    helpmsg.push_str(", ");
+                }
+                helpmsg.push_str(&arg.arg_name);
+                if let Some(help) = &arg.help {
+                    helpmsg.push('\t');
+                    helpmsg.push_str(help);
+                }
+                if !arg.required {
+                    helpmsg.push('\t');
+                    helpmsg.push_str("[optional]");
+                }
+                helpmsg.push('\n');
+            }
+            if pos_args.len() + named_args.len() > 0 {
+                helpmsg.push('\n');
+            }
+            // Help info for flags.
+            if flags.len() > 0 {
+                helpmsg.push_str("FLAGS:\n");
+            }
+            for flag in &flags{
+                helpmsg.push_str("    ");
+                if let Some(short) = &flag.short {
+                    helpmsg.push_str(short);
+                    helpmsg.push_str(", ");
+                }
+                helpmsg.push_str(&flag.arg_name);
+                if let Some(help) = &flag.help {
+                    helpmsg.push('\t');
+                    helpmsg.push_str(help);
+                }
+                helpmsg.push('\n');
             }
 
             //
@@ -268,6 +353,7 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                     match ARGS_ITER.next().as_deref() {
                         #match_args
                         #match_flags
+                        Some("--help") | Some("-h") => return Ok(#parse_ty::Help(#help_ty(HELP))) ,
                         Some(fl) => return Err(#err_ty::UnknownFlag(fl.to_string())),
                         _ => panic!("This shouldn't happen."),
                     }
@@ -398,6 +484,8 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             };
 
             quote! {
+                const HELP: &str = #helpmsg;
+
                 #declarations
                 #consume_flags
                 #pos

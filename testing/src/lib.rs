@@ -3,16 +3,21 @@
 pub enum Command {
     #[help = "Save a file"]
     Save {
+        #[help = "Name of the destination file"]
         name: String,
         #[flag(short = "v")]
+        #[help = "Print on success"]
         verbose: bool,
     },
     #[help = "Load a file"]
     LoadFile {
+        #[help = "The file to load"]
         file: String,
         #[variadic]
+        #[help = "Some options or something idk"]
         bytes: Vec<u8>,
         #[named]
+        #[help = "How long to wait before cancelling (ms)"]
         time_out: u64,
     },
     Oof {
@@ -23,13 +28,15 @@ pub enum Command {
     },
     #[help = "Format a person's name"]
     Name {
+        #[help = "First name"]
         first: String,
         #[optional]
+        #[help = "Last name"]
         last: Option<String>,
     },
     #[help = "Print one or two strings"]
     Print(String, #[optional] Option<String>),
-    #[help = "Format a string with an arbitrary number of value"]
+    #[help = "Format a string with an arbitrary number of values"]
     Format(String, #[variadic] Vec<String>),
 }
 
@@ -61,7 +68,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Help - command")]
     fn help() {
-        process!(Command, ).unwrap();
+        process!(Command,).unwrap();
     }
     #[test]
     #[should_panic(expected = "Help - command")]
@@ -114,6 +121,11 @@ mod tests {
     fn save_err2() {
         process!(Command, "save" "foo" "too-many").unwrap();
     }
+    #[test]
+    #[should_panic(expected = "Help - save")]
+    fn save_help() {
+        process!(Command, "save" "--help").unwrap();
+    }
 
     #[test]
     fn load_file() {
@@ -162,6 +174,11 @@ mod tests {
     #[should_panic(expected = "Unknown flag `--lime-out`")]
     fn load_file_err3() {
         process!(Command, "load-file" "foo" "--lime-out").unwrap();
+    }
+    #[test]
+    #[should_panic(expected = "Help - load-file")]
+    fn load_file_help() {
+        process!(Command, "load-file" "--help").unwrap();
     }
 
     #[test]
@@ -213,6 +230,11 @@ mod tests {
                 last: None
             }
         );
+    }
+    #[test]
+    #[should_panic(expected = "Help - name")]
+    fn name_help() {
+        process!(Command, "name" "--help").unwrap();
     }
 
     #[test]
