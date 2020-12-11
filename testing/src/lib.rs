@@ -2,8 +2,7 @@
 pub enum Command {
     Save {
         name: String,
-        #[flag]
-        #[short("v")]
+        #[flag(short = "v")]
         verbose: bool,
     },
     LoadFile {
@@ -15,8 +14,7 @@ pub enum Command {
     },
     Oof {
         ouch: String,
-        #[named]
-        #[short("c")]
+        #[named(short = "c")]
         #[optional]
         count: Option<u32>,
     },

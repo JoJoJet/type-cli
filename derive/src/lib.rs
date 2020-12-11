@@ -28,7 +28,7 @@ macro_rules! crate_path {
     }
 }
 
-#[proc_macro_derive(CLI, attributes(named, flag, optional, variadic, short))]
+#[proc_macro_derive(CLI, attributes(named, flag, optional, variadic))]
 pub fn cli(item: TokenStream) -> TokenStream {
     let cmd_ident;
     let err_ty = crate_path!(Error);
@@ -105,14 +105,16 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                 variadic: bool,
             }
             impl Arg {
-                pub fn new(ident: Ident, short: Option<syn::LitStr>, ty: Type, required: bool, variadic: bool) -> Self {
+                pub fn new(ident: Ident, short: Option<String>, ty: Type, required: bool, variadic: bool) -> Self {
                     let name = to_snake(&ident);
                     let l_ident = format_ident!("{}", name);
                     let arg_name = format!("--{}", name.replace("_", "-"));
-                    let short = short.map(|s| format!("-{}", s.value()));
+                    let short = short.map(|s| format!("-{}", s));
                     Self { ident, l_ident, arg_name, short, ty, required, variadic }
                 }
             }
+
+            let short_reg = regex::Regex::new(r#"short\s*=\s*"(.*)""#).unwrap();
 
             let mut any_variadic = false;
 
@@ -126,23 +128,23 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
 
                 let required = !attrs.iter().any(|a| a.path.is_ident("optional"));
                 let variadic = attrs.iter().any(|a| a.path.is_ident("variadic"));
-                let short = attrs.iter()
-                    .find(|a| a.path.is_ident("short"))
-                    .map(|a| a.parse_args::<syn::LitStr>())
-                    .transpose().expect("argument to `short` attribute must be a string");
                 
                 // Named arguments.
-                if attrs.iter().any(|a| a.path.is_ident("named")) {
+                if let Some(named) = attrs.iter().find(|a| a.path.is_ident("named")) {
                     if variadic {
                         panic!("Named argument `{}` cannot be variadic.", ident.to_string());
                     }
+                    let short = short_reg.captures(&named.tokens.to_string())
+                        .map(|cap| cap[1].to_string());
                     named_args.push(Arg::new(ident, short, ty, required, false));
                 }
                 // Flags.
-                else if attrs.iter().any(|a| a.path.is_ident("flag")) {
+                else if let Some(flag) = attrs.iter().find(|a| a.path.is_ident("flag")) {
                     if variadic {
                         panic!("Flag `{}` cannot be variadic.", ident.to_string());
                     }
+                    let short = short_reg.captures(&flag.tokens.to_string())
+                        .map(|cap| cap[1].to_string());
                     flags.push(Arg::new(ident, short, ty, required, false));
                 }
                 // Positional arguments.
@@ -154,7 +156,7 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
                         panic!("Positional argument `{}` must come before the variadic argument.", ident.to_string());
                     }
                     any_variadic = any_variadic || variadic;
-                    pos_args.push(Arg::new(ident, short, ty, required, variadic));
+                    pos_args.push(Arg::new(ident, None, ty, required, variadic));
                 }
             }
 
