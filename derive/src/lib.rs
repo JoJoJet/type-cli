@@ -18,9 +18,11 @@ macro_rules! crate_path {
     }};
 }
 
-#[proc_macro_derive(CLI, attributes(named, flag, optional, variadic))]
+#[proc_macro_derive(CLI, attributes(help, named, flag, optional, variadic))]
 pub fn cli(item: TokenStream) -> TokenStream {
     let cmd_ident;
+    let parse_ty = crate_path!(Parse);
+    let help_ty = crate_path!(HelpInfo);
     let err_ty = crate_path!(Error);
     let cli_ty = crate_path!(CLI);
 
@@ -29,6 +31,8 @@ pub fn cli(item: TokenStream) -> TokenStream {
     let body = match input {
         Item::Enum(item) => {
             let mut _match = quote! {};
+
+            let mut subc: Vec<String> = Vec::new();
 
             cmd_ident = item.ident;
             for syn::Variant {
@@ -39,6 +43,19 @@ pub fn cli(item: TokenStream) -> TokenStream {
             } in item.variants
             {
                 let name = to_snake(&ident);
+
+                let mut helpmsg = name.clone();
+                if let Some(help) = attrs.iter().find(|a| a.path.is_ident("help")) {
+                    match parse_help(help) {
+                        Ok(help) => {
+                            helpmsg.push('\t');
+                            helpmsg.push_str(&help);
+                        }
+                        Err(e) => return e.to_compile_error().into(),
+                    }
+                }
+                subc.push(helpmsg);
+
                 let ctor = command(ident, attrs, fields);
                 _match = quote! {
                     #_match
@@ -48,11 +65,33 @@ pub fn cli(item: TokenStream) -> TokenStream {
                 };
             }
 
+            let mut helpmsg = format!("Help - {}\n", to_snake(&cmd_ident));
+            if let Some(help) = item.attrs.iter().find(|a| a.path.is_ident("help")) {
+                match parse_help(help) {
+                    Ok(help) => {
+                        helpmsg.push_str(&help);
+                        helpmsg.push_str("\n\n");
+                    }
+                    Err(e) => return e.to_compile_error().into(),
+                }
+            }
+
+            helpmsg.push_str("SUBCOMMANDS:\n");
+            for subc in subc {
+                helpmsg.push_str("    ");
+                helpmsg.push_str(&subc);
+                helpmsg.push('\n');
+            }
+
             quote! {
                 use #cmd_ident::*;
+
+                const HELP: &str = #helpmsg;
+
                 match ARGS_ITER.next().as_deref() {
                     #_match
-                    _ => panic!("Expected a subcommand.")
+                    Some("--help") | Some("-h") | None => return Ok(#parse_ty::Help(#help_ty(HELP))),
+                    Some(sub) => return Err(#err_ty::UnknownSub(sub.to_string())),
                 }
             }
         }
@@ -68,12 +107,12 @@ pub fn cli(item: TokenStream) -> TokenStream {
 
     let ret = quote! {
         impl #cli_ty for #cmd_ident {
-            fn parse(mut ARGS_ITER : impl std::iter::Iterator<Item=String>) -> Result<#cmd_ident, #err_ty> {
+            fn parse(mut ARGS_ITER : impl std::iter::Iterator<Item=String>) -> Result<#parse_ty<#cmd_ident>, #err_ty> {
                 let _ = ARGS_ITER.next();
                 let ret = {
                     #body
                 };
-                Ok(ret)
+                Ok(#parse_ty::Success(ret))
             }
         }
     };
@@ -433,6 +472,25 @@ fn command(cmd_ident: Ident, _attr: Vec<Attribute>, fields: Fields) -> TokenStre
             }
         }
         Fields::Unit => todo!(),
+    }
+}
+
+fn parse_help(help: &Attribute) -> syn::Result<String> {
+    match help.parse_meta()? {
+        syn::Meta::NameValue(meta) => {
+            if let syn::Lit::Str(help) = meta.lit {
+                Ok(help.value())
+            } else {
+                Err(syn::Error::new_spanned(
+                    help.tokens.clone(),
+                    "Help message must be a string literal",
+                ))
+            }
+        }
+        _ => Err(syn::Error::new_spanned(
+            help.tokens.clone(),
+            r#"Help must be formatted as #[help = "msg"]"#,
+        )),
     }
 }
 

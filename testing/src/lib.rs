@@ -1,10 +1,13 @@
 #[derive(PartialEq, Eq, Debug, type_cli::CLI)]
+#[help = "Does too many things"]
 pub enum Command {
+    #[help = "Save a file"]
     Save {
         name: String,
         #[flag(short = "v")]
         verbose: bool,
     },
+    #[help = "Load a file"]
     LoadFile {
         file: String,
         #[variadic]
@@ -18,12 +21,15 @@ pub enum Command {
         #[optional]
         count: Option<u32>,
     },
+    #[help = "Format a person's name"]
     Name {
         first: String,
         #[optional]
         last: Option<String>,
     },
+    #[help = "Print one or two strings"]
     Print(String, #[optional] Option<String>),
+    #[help = "Format a string with an arbitrary number of value"]
     Format(String, #[variadic] Vec<String>),
 }
 
@@ -42,10 +48,36 @@ mod tests {
         }
     }
 
+    macro_rules! process {
+        ($ty: ty, $($st: literal)*) => {
+            match parse!($ty, $($st)*) {
+                Ok(type_cli::Parse::Success(val)) => Ok(val),
+                Ok(type_cli::Parse::Help(h)) => panic!("{}", h),
+                Err(e) => Err(e),
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Help - command")]
+    fn help() {
+        process!(Command, ).unwrap();
+    }
+    #[test]
+    #[should_panic(expected = "Help - command")]
+    fn help2() {
+        process!(Command, "--help").unwrap();
+    }
+    #[test]
+    #[should_panic(expected = "Help - command")]
+    fn help3() {
+        process!(Command, "-h").unwrap();
+    }
+
     #[test]
     fn save() {
         assert_eq!(
-            parse!(Command, "save" "foo").unwrap(),
+            process!(Command, "save" "foo").unwrap(),
             Command::Save {
                 name: "foo".to_string(),
                 verbose: false
@@ -55,7 +87,7 @@ mod tests {
     #[test]
     fn save_verbose() {
         assert_eq!(
-            parse!(Command, "save" "--verbose" "foo").unwrap(),
+            process!(Command, "save" "--verbose" "foo").unwrap(),
             Command::Save {
                 name: "foo".to_string(),
                 verbose: true
@@ -65,7 +97,7 @@ mod tests {
     #[test]
     fn save_v() {
         assert_eq!(
-            parse!(Command, "save" "foo" "-v").unwrap(),
+            process!(Command, "save" "foo" "-v").unwrap(),
             Command::Save {
                 name: "foo".to_string(),
                 verbose: true
@@ -75,18 +107,18 @@ mod tests {
     #[test]
     #[should_panic(expected = "Expected an argument at position `1`")]
     fn save_err() {
-        parse!(Command, "save").unwrap();
+        process!(Command, "save").unwrap();
     }
     #[test]
     #[should_panic(expected = "Unexpected positional argument `too-many`")]
     fn save_err2() {
-        parse!(Command, "save" "foo" "too-many").unwrap();
+        process!(Command, "save" "foo" "too-many").unwrap();
     }
 
     #[test]
     fn load_file() {
         assert_eq!(
-            parse!(Command, "load-file" "foo" "--time-out" "8").unwrap(),
+            process!(Command, "load-file" "foo" "--time-out" "8").unwrap(),
             Command::LoadFile {
                 file: "foo".to_string(),
                 bytes: Vec::new(),
@@ -97,7 +129,7 @@ mod tests {
     #[test]
     fn load_file_bytes() {
         assert_eq!(
-            parse!(Command, "load-file" "foo" "7" "255" "--time-out" "8").unwrap(),
+            process!(Command, "load-file" "foo" "7" "255" "--time-out" "8").unwrap(),
             Command::LoadFile {
                 file: "foo".to_string(),
                 bytes: vec![7, 255],
@@ -108,7 +140,7 @@ mod tests {
     #[test]
     fn load_file_bytes2() {
         assert_eq!(
-            parse!(Command, "load-file" "foo" "15" "48" "--time-out" "8" "29").unwrap(),
+            process!(Command, "load-file" "foo" "15" "48" "--time-out" "8" "29").unwrap(),
             Command::LoadFile {
                 file: "foo".to_string(),
                 bytes: vec![15, 48, 29],
@@ -119,30 +151,30 @@ mod tests {
     #[test]
     #[should_panic(expected = "Expected an argument named `--time-out`")]
     fn load_file_err() {
-        parse!(Command, "load-file" "foo").unwrap();
+        process!(Command, "load-file" "foo").unwrap();
     }
     #[test]
     #[should_panic(expected = "Expected a value after argument `--time-out`")]
     fn load_file_err2() {
-        parse!(Command, "load-file" "foo" "--time-out").unwrap();
+        process!(Command, "load-file" "foo" "--time-out").unwrap();
     }
     #[test]
     #[should_panic(expected = "Unknown flag `--lime-out`")]
     fn load_file_err3() {
-        parse!(Command, "load-file" "foo" "--lime-out").unwrap();
+        process!(Command, "load-file" "foo" "--lime-out").unwrap();
     }
 
     #[test]
     fn oof() {
         assert_eq!(
-            parse!(Command, "oof" "foo" "--count" "4").unwrap(),
+            process!(Command, "oof" "foo" "--count" "4").unwrap(),
             Command::Oof {
                 ouch: "foo".to_string(),
                 count: Some(4)
             }
         );
         assert_eq!(
-            parse!(Command, "oof" "foo").unwrap(),
+            process!(Command, "oof" "foo").unwrap(),
             Command::Oof {
                 ouch: "foo".to_string(),
                 count: None
@@ -152,7 +184,7 @@ mod tests {
     #[test]
     fn oof_short() {
         assert_eq!(
-            parse!(Command, "oof" "-c" "12" "foo").unwrap(),
+            process!(Command, "oof" "-c" "12" "foo").unwrap(),
             Command::Oof {
                 ouch: "foo".to_string(),
                 count: Some(12)
@@ -162,20 +194,20 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error parsing string `kevin`")]
     fn oof_err() {
-        parse!(Command, "oof" "foo" "--count" "kevin").unwrap();
+        process!(Command, "oof" "foo" "--count" "kevin").unwrap();
     }
 
     #[test]
     fn name() {
         assert_eq!(
-            parse!(Command, "name" "Robb" "Stark").unwrap(),
+            process!(Command, "name" "Robb" "Stark").unwrap(),
             Command::Name {
                 first: "Robb".to_string(),
                 last: Some("Stark".to_string())
             }
         );
         assert_eq!(
-            parse!(Command, "name" "Pate").unwrap(),
+            process!(Command, "name" "Pate").unwrap(),
             Command::Name {
                 first: "Pate".to_string(),
                 last: None
@@ -186,27 +218,27 @@ mod tests {
     #[test]
     fn print() {
         assert_eq!(
-            parse!(Command, "print" "foo" "bar").unwrap(),
+            process!(Command, "print" "foo" "bar").unwrap(),
             Command::Print("foo".to_string(), Some("bar".to_string()))
         );
     }
     #[test]
     fn print_opt() {
         assert_eq!(
-            parse!(Command, "print" "foo").unwrap(),
+            process!(Command, "print" "foo").unwrap(),
             Command::Print("foo".to_string(), None)
         );
     }
     #[test]
     #[should_panic(expected = "Unexpected positional argument `extra-arg`")]
     fn print_err() {
-        parse!(Command, "print" "foo" "bar" "extra-arg").unwrap();
+        process!(Command, "print" "foo" "bar" "extra-arg").unwrap();
     }
 
     #[test]
     fn format() {
         assert_eq!(
-            parse!(Command, "format" "fmt" "arg1" "arg2").unwrap(),
+            process!(Command, "format" "fmt" "arg1" "arg2").unwrap(),
             Command::Format(
                 "fmt".to_string(),
                 vec!["arg1".to_string(), "arg2".to_string()]
