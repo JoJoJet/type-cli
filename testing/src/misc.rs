@@ -16,6 +16,12 @@ pub struct Oof {
     count: Option<u32>,
 }
 
+#[derive(PartialEq, Eq, Debug, type_cli::CLI)]
+pub struct Ls {
+    #[optional]
+    dir: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -44,6 +50,16 @@ mod tests {
     #[should_panic(expected = "Help - name")]
     fn name_help() {
         process!(Name, "--help").unwrap();
+    }
+    #[test]
+    #[should_panic(expected = "Help - name")]
+    fn name_help2() {
+        process!(Name, "-h").unwrap();
+    }
+    #[test]
+    #[should_panic(expected = "Help - name")]
+    fn name_help3() {
+        process!(Name,).unwrap();
     }
 
     #[test]
@@ -77,5 +93,19 @@ mod tests {
     #[should_panic(expected = "Error parsing string `kevin`")]
     fn oof_err() {
         process!(Oof, "foo" "--count" "kevin").unwrap();
+    }
+
+    #[test]
+    fn ls_arg() {
+        assert_eq!(process!(Ls, "dir").unwrap(), Ls { dir: Some("dir".to_string()) });
+    }
+    #[test]
+    fn ls_none() {
+        assert_eq!(process!(Ls,).unwrap(), Ls { dir: None });
+    }
+    #[test]
+    #[should_panic(expected = "Help - ls")]
+    fn ls_help() {
+        process!(Ls, "--help").unwrap();
     }
 }

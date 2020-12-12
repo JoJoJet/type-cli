@@ -101,7 +101,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Expected an argument at position `1`")]
     fn save_err() {
-        process!(FileSystem, "save").unwrap();
+        process!(FileSystem, "save" "-v").unwrap();
     }
     #[test]
     #[should_panic(expected = "Unexpected positional argument `too-many`")]
@@ -112,6 +112,11 @@ mod tests {
     #[should_panic(expected = "Help - save")]
     fn save_help() {
         process!(FileSystem, "save" "--help").unwrap();
+    }
+    #[test]
+    #[should_panic(expected = "Help - save")]
+    fn save_help2() {
+        process!(FileSystem, "save").unwrap();
     }
 
     #[test]

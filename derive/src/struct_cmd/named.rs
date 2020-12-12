@@ -256,6 +256,19 @@ impl Parser {
                 }
             }
         };
+        //
+        // Display the help message if called with no arguments.
+        // If all of the arguments are optional, don't do this.
+        let help_on_blank = if pos_args.iter().any(|a| a.required && !a.variadic) {
+            quote ! {
+                if #iter.peek().is_none() {
+                    return Ok(#parse_ty::Help(#help_ty(#help_ident)));
+                }
+            }
+        } else {
+            quote! {}
+        };
+        //
         // Code to consume positional arguments.
         let mut pos = quote! {};
         for (i, arg) in pos_args.iter().enumerate() {
@@ -378,6 +391,7 @@ impl Parser {
 
         quote! {{
             #declarations
+            #help_on_blank
             #consume_flags
             #pos
             let val = #ctor;
