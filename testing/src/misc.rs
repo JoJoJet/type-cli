@@ -1,4 +1,3 @@
-
 #[derive(PartialEq, Eq, Debug, type_cli::CLI)]
 #[help = "Format a person's name"]
 pub struct Name {
@@ -47,7 +46,6 @@ mod tests {
         process!(Name, "--help").unwrap();
     }
 
-    
     #[test]
     fn oof() {
         assert_eq!(

@@ -58,7 +58,7 @@ macro_rules! int_flag {
     ($int: ty) => {
         impl $crate::Flag for $int {
             fn increment(&mut self){
-                *self = *self + 1;
+                *self += 1;
             }
         }
     }

@@ -3,18 +3,18 @@ use std::error::Error as StdError;
 pub use type_cli_derive::CLI;
 
 mod args;
-pub use args::{Argument, OptionalArg, Flag};
+pub use args::{Argument, Flag, OptionalArg};
 
-pub trait CLI : Sized {
-    fn parse(args: impl std::iter::Iterator<Item=String>) -> Result<Parse<Self>, Error>;
-    fn process(args: impl std::iter::Iterator<Item=String>) -> Result<Self, Error> {
+pub trait CLI: Sized {
+    fn parse(args: impl std::iter::Iterator<Item = String>) -> Result<Parse<Self>, Error>;
+    fn process(args: impl std::iter::Iterator<Item = String>) -> Result<Self, Error> {
         match Self::parse(args) {
             Ok(Parse::Success(val)) => Ok(val),
             Ok(Parse::Help(help)) => {
                 eprint!("{}", help);
                 std::process::exit(1);
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 }
@@ -26,7 +26,7 @@ pub enum Parse<T: CLI> {
 
 pub struct HelpInfo(pub &'static str);
 
-impl std::fmt::Display for HelpInfo{
+impl std::fmt::Display for HelpInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -47,7 +47,7 @@ pub enum Error {
     #[error("Unknown subcommand `{0}`")]
     UnknownSub(String),
     #[error("Error parsing string `{0}`")]
-    Parse(String, Box<dyn StdError>)
+    Parse(String, Box<dyn StdError>),
 }
 
 impl std::fmt::Debug for Error {
@@ -55,4 +55,3 @@ impl std::fmt::Debug for Error {
         std::fmt::Display::fmt(self, f)
     }
 }
-

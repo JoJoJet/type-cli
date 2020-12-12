@@ -19,7 +19,7 @@ pub enum FileSystem {
         #[named]
         #[help = "How long to wait before cancelling (ms)"]
         time_out: u64,
-    }
+    },
 }
 
 #[cfg(test)]
@@ -44,7 +44,6 @@ macro_rules! process {
         }
     }
 }
-
 
 mod fmt;
 mod misc;

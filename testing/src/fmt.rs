@@ -1,4 +1,3 @@
-
 #[derive(PartialEq, Eq, Debug, type_cli::CLI)]
 #[help = "Format a string with an arbitrary number of values"]
 pub struct Format(String, #[variadic] Vec<String>);
@@ -22,7 +21,6 @@ mod tests {
         );
     }
 
-    
     #[test]
     fn print() {
         assert_eq!(
