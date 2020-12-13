@@ -1,8 +1,13 @@
 [package]
 name = "type-cli"
-version = "0.1.0"
-authors = ["joe10"]
+version = "0.0.1"
+authors = ["JoJoJet"]
 edition = "2018"
+description = "A convenient, type-safe CLI parser."
+repository = "https://github.com/JoJoJet/type-cli"
+license = "MIT"
+keywords = ["cli", "command", "clap", "derive"]
+categories = ["command-line interface", "command-line-interface"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
