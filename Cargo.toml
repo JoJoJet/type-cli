@@ -1,11 +1,5 @@
-[package]
-name = "type-cli"
-version = "0.1.0"
-authors = ["joe10"]
-edition = "2018"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-type-cli-derive = { path = "derive" }
-thiserror = "1.0"
+members = [
+	"type-cli", "type-cli-derive", "tests"
+]

@@ -1,4 +1,3 @@
 /target
-/derive/target
-/testing/target
+/*/target
 Cargo.lock
