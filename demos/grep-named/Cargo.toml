@@ -7,5 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-type-cli = "0.0.1"
+type-cli = { path = "../../type-cli" }
 regex = "1.4"
