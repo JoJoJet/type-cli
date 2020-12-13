@@ -1,0 +1,4 @@
+[workspace]
+members = [
+    "grep-naive", "grep-better", "grep-var", "grep-named"
+]

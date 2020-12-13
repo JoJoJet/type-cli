@@ -1,5 +1,5 @@
 [workspace]
-
 members = [
 	"type-cli", "type-cli-derive", "tests"
 ]
+exclude = ["demos"]
