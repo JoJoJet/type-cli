@@ -184,6 +184,7 @@ impl Parser {
         let parse_ty = crate_path!(Parse);
         let help_ty = crate_path!(HelpInfo);
         let err_ty = crate_path!(Error);
+        let argref_ty = crate_path!(ArgRef);
 
         let Self {
             cmd_ident,
@@ -260,7 +261,7 @@ impl Parser {
         // Display the help message if called with no arguments.
         // If all of the arguments are optional, don't do this.
         let help_on_blank = if pos_args.iter().any(|a| a.required && !a.variadic) {
-            quote ! {
+            quote! {
                 if #iter.peek().is_none() {
                     return Ok(#parse_ty::Help(#help_ty(#help_ident)));
                 }
@@ -324,33 +325,37 @@ impl Parser {
         // Code to put the arguments in the constructor.
         let ctor = {
             let mut ctor = quote! {};
-            for Arg {
-                ident,
-                l_ident,
-                required,
-                variadic,
-                ..
-            } in pos_args
-            {
+            for (i, arg) in pos_args.into_iter().enumerate() {
+                let Arg {
+                    ident,
+                    l_ident,
+                    required,
+                    variadic,
+                    ..
+                } = arg;
+                let i = i + 1;
                 // Collect args if variadic.
                 ctor = if variadic {
                     quote! {
                         #ctor
-                        #ident : #l_ident.iter().map(#arg_ty::parse).collect::<Result<_, #err_ty>>()? ,
+                        #ident : #l_ident.iter()
+                            .enumerate()
+                            .map(|(i, val)| #arg_ty::parse(val, #argref_ty::Positional(#i + i)))
+                            .collect::<Result<_, #err_ty>>()? ,
                     }
                 }
                 // Handle errors if required.
                 else if required {
                     quote! {
                         #ctor
-                        #ident : #arg_ty::parse(#l_ident)? ,
+                        #ident : #arg_ty::parse(#l_ident, #argref_ty::Positional(#i))? ,
                     }
                 }
                 // Allow defaults if optional.
                 else {
                     quote! {
                         #ctor
-                        #ident: #opt_ty::map_parse(#l_ident)? ,
+                        #ident: #opt_ty::map_parse(#l_ident, #argref_ty::Positional(#i))? ,
                     }
                 }
             }
@@ -362,18 +367,19 @@ impl Parser {
                 ..
             } in named_args
             {
+                let argref = quote! { #argref_ty::Named(#arg_name) };
                 // Error handling if it's required.
                 ctor = if required {
                     quote! {
                         #ctor
-                        #ident: #arg_ty::parse(#l_ident.ok_or(#err_ty::ExpectedNamed(#arg_name))?)? ,
+                        #ident: #arg_ty::parse(#l_ident.ok_or(#err_ty::ExpectedNamed(#arg_name))?, #argref)? ,
                     }
                 }
                 // Defaults if it's optional
                 else {
                     quote! {
                         #ctor
-                        #ident: #opt_ty::map_parse(#l_ident)? ,
+                        #ident: #opt_ty::map_parse(#l_ident, #argref)? ,
                     }
                 }
             }

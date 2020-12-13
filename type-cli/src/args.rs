@@ -1,36 +1,36 @@
 use std::{convert::AsRef, str::FromStr};
-use super::Error;
+use super::{Error, ArgRef};
 use std::error::Error as StdError;
 
 pub trait Argument : Sized {
-    fn parse(arg: impl AsRef<str>) -> Result<Self, Error>;
+    fn parse(arg: impl AsRef<str>, arg: ArgRef) -> Result<Self, Error>;
 }
 
 impl<T: FromStr> Argument for T
 where <T as FromStr>::Err : StdError + 'static
 {
-    fn parse(arg: impl AsRef<str>) -> Result<Self, Error> {
-        let arg = arg.as_ref();
-        T::from_str(arg).map_err(|e| Error::Parse(arg.to_string(), Box::new(e)))
+    fn parse(val: impl AsRef<str>, arg: ArgRef) -> Result<Self, Error> {
+        let val = val.as_ref();
+        T::from_str(val).map_err(|e| Error::Parse(arg, Box::new(e)))
     }
 }
 
 
 pub trait OptionalArg : Sized {
-    fn parse(arg: impl AsRef<str>) -> Result<Self, Error>;
+    fn parse(arg: impl AsRef<str>, arg: ArgRef) -> Result<Self, Error>;
     fn default() -> Self;
 
-    fn map_parse(arg: Option<impl AsRef<str>>) -> Result<Self, Error> {
-        match arg {
-            Some(arg) => Self::parse(arg),
+    fn map_parse(val: Option<impl AsRef<str>>, arg: ArgRef) -> Result<Self, Error> {
+        match val {
+            Some(val) => Self::parse(val, arg),
             None => Ok(Self::default())
         }
     }
 }
 
 impl<T: Argument> OptionalArg for Option<T> {
-    fn parse(arg: impl AsRef<str>) -> Result<Self, Error> {
-        Some(T::parse(arg)).transpose()
+    fn parse(val: impl AsRef<str>, arg: ArgRef) -> Result<Self, Error> {
+        Some(T::parse(val, arg)).transpose()
     }
     fn default() -> Self {
         None

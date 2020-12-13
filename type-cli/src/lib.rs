@@ -46,8 +46,27 @@ pub enum Error {
     ExtraArg(String),
     #[error("Unknown subcommand `{0}`")]
     UnknownSub(String),
-    #[error("Error parsing string `{0}`")]
-    Parse(String, Box<dyn StdError>),
+    #[error("Error parsing {0}:\n{1}")]
+    Parse(ArgRef, Box<dyn StdError>),
+}
+
+/// A way to refer to an argument in an error.
+pub enum ArgRef {
+    Positional(usize),
+    Named(&'static str),
+}
+use std::fmt::{self, Display};
+impl Display for ArgRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            &ArgRef::Positional(index) => {
+                write!(f, "positional argument `{}`", index)
+            }
+            &ArgRef::Named(name) => {
+                write!(f, "argument `{}`", name)
+            }
+        }
+    }
 }
 
 impl std::fmt::Debug for Error {

@@ -37,6 +37,7 @@ impl Parser {
         let arg_ty = crate_path!(Argument);
         let opt_ty = crate_path!(OptionalArg);
         let err_ty = crate_path!(Error);
+        let argref_ty = crate_path!(ArgRef);
 
         let Self { cmd_ident, args } = self;
         let mut ctor = quote! {};
@@ -47,21 +48,24 @@ impl Parser {
                 // Run collect `by_ref` so it doesn't move the iterator.
                 quote! {
                     #ctor
-                    #iter.by_ref().map(#arg_ty::parse).collect::<Result<_, #err_ty>>()? ,
+                    #iter.by_ref()
+                        .enumerate()
+                        .map(|(i, val)| #arg_ty::parse(val, #argref_ty::Positional(#i + i)))
+                        .collect::<Result<_, #err_ty>>()? ,
                 }
             }
             // Required arguments.
             else if required {
                 quote! {
                     #ctor
-                    #arg_ty::parse(#iter.next().ok_or(#err_ty::ExpectedPositional(#i))?)? ,
+                    #arg_ty::parse(#iter.next().ok_or(#err_ty::ExpectedPositional(#i))?, #argref_ty::Positional(#i))? ,
                 }
             }
             // Optional arguments.
             else {
                 quote! {
                     #ctor
-                    #opt_ty::map_parse(#iter.next())? ,
+                    #opt_ty::map_parse(#iter.next(), #argref_ty::Positional(#i))? ,
                 }
             }
         }

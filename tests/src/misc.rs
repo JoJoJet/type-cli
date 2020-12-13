@@ -90,7 +90,7 @@ mod tests {
         );
     }
     #[test]
-    #[should_panic(expected = "Error parsing string `kevin`")]
+    #[should_panic(expected = "Error parsing argument `--count`")]
     fn oof_err() {
         process!(Oof, "foo" "--count" "kevin").unwrap();
     }
