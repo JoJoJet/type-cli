@@ -1,9 +1,9 @@
 [package]
 name = "type-cli"
-version = "0.0.1"
-authors = ["JoJoJet"]
+version = "0.0.2"
+authors = ["JoJoJet <joe102000@gmail.com>"]
 edition = "2018"
-description = "A convenient, type-safe CLI parser."
+description = "A convenient, strongly-typed CLI parser."
 repository = "https://github.com/JoJoJet/type-cli"
 license = "MIT"
 keywords = ["cli", "command", "clap", "derive"]

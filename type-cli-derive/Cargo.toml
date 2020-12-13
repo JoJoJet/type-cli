@@ -1,7 +1,7 @@
 [package]
 name = "type-cli-derive"
 version = "0.0.1"
-authors = ["JoJoJet"]
+authors = ["JoJoJet <joe102000@gmail.com>"]
 edition = "2018"
 description = "Derive macro for a convenient, type-safe CLI parser."
 repository = "https://github.com/JoJoJet/type-cli"
