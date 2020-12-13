@@ -7,15 +7,15 @@ struct Grep {
     #[named]
     file: String,
 
-    #[flag(short = "v")]
-    invert: bool,
+    #[flag(short = "i")]
+    ignore_case: bool,
 }
 
 fn main() {
-    let Grep { pattern, file, invert } = Grep::process();
-    if invert {
-        eprintln!("Searching for anything that doesn't match `{}` in {}", pattern, file);
-    } else {
-        eprintln!("Searching for `{}` in {}", pattern, file);
+    let Grep { pattern, file, ignore_case } = Grep::process();
+    eprint!("Searching for `{}` in {}", pattern, file);
+    if ignore_case {
+        eprint!(", ignoring case");
     }
+    eprintln!();
 }
