@@ -1,7 +1,9 @@
 # type-cli
-type-cli is a convenient, strongly-typed command-line interface parser.
+`type-cli` is a convenient, strongly-typed command-line interface parser.
 
 To start, let's create an interface for `grep`.
+
+## Basics
 
 ```rust
 use type_cli::CLI;
@@ -103,7 +105,7 @@ Searching for `foo*` in myFile, yourFile, ourFile,
 This still isn't ideal, though. None of the fields have names, and there's no flags or options!
 Clearly, tuple structs are limiting us.
 
-#
+## Named arguments and flags
 
 ```rust
 use type_cli::CLI;
@@ -153,7 +155,7 @@ Searching for `foo*` in myFile, ignoring case
 
 This seems well and good, but what if I want multiple commands in my application?
 
-#
+## Subcommands
 
 ```rust
 use type_cli::CLI;
@@ -218,7 +220,7 @@ Annoyingly checking your code.
 
 What about documentation?
 
-#
+## --help
 
 ```rust
 use type_cli::CLI;
