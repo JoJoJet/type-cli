@@ -7,7 +7,7 @@ description = "Derive macro for a convenient, type-safe CLI parser."
 repository = "https://github.com/JoJoJet/type-cli"
 license = "MIT"
 keywords = ["cli", "command", "clap", "derive"]
-categories = ["command-line interface", "command-line-interface"]
+categories = ["command-line-interface"]
 
 [lib]
 proc-macro = true

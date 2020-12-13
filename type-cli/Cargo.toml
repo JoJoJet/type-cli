@@ -7,10 +7,10 @@ description = "A convenient, type-safe CLI parser."
 repository = "https://github.com/JoJoJet/type-cli"
 license = "MIT"
 keywords = ["cli", "command", "clap", "derive"]
-categories = ["command-line interface", "command-line-interface"]
+categories = ["command-line-interface"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-type-cli-derive = { path = "../type-cli-derive" }
+type-cli-derive = "0.0.1"
 thiserror = "1.0"
