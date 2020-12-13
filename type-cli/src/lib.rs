@@ -6,19 +6,39 @@ mod args;
 pub use args::{Argument, Flag, OptionalArg};
 
 pub trait CLI: Sized {
+    ///
+    /// Parses the arguments as a command-line interface of the current type,
+    /// returning errors as a value for manul handling.
+    ///
+    /// If you don't need fine control over program flow, use `CLI::processs` instead.
     fn parse(args: impl std::iter::Iterator<Item = String>) -> Result<Parse<Self>, Error>;
-    fn process(args: impl std::iter::Iterator<Item = String>) -> Result<Self, Error> {
-        match Self::parse(args) {
-            Ok(Parse::Success(val)) => Ok(val),
+    ///
+    /// Parses `std::env::args()` as a command-line interface of the current type.
+    ///
+    /// If an error occurs while parsing, it will be send to stderr and the process will exit.
+    /// If the user enters `--help` or `-h`, help info will be sent to stderr and the process will exit.
+    ///
+    /// If you want finer control over program flow, use `CLI::parse` instead.
+    fn process() -> Self {
+        match Self::parse(std::env::args()) {
+            Ok(Parse::Success(val)) => val,
             Ok(Parse::Help(help)) => {
-                eprint!("{}", help);
+                eprintln!("{}", help);
                 std::process::exit(1);
             }
-            Err(e) => Err(e),
+            Err(e) => {
+                eprintln!("{}", e);
+                std::process::exit(101);
+            }
         }
     }
 }
 
+///
+/// A result of successful command-line interface parsing.
+///
+/// This is either a data structure holding the arguments passed to the program,
+/// or a string containing help info about the current command.
 pub enum Parse<T: CLI> {
     Success(T),
     Help(HelpInfo),
